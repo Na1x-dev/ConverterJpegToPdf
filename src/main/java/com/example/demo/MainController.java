@@ -107,53 +107,64 @@ public class MainController {
 //        return imageFiles;
 //    }
 
+    private File findFirstImage(File[] imageArray){
+        for(File image : imageArray){
+            if(image.getName().equals("0.jpeg")){
+                return image;
+            }
+        }
+        return null;
+    }
+
     @FXML
     void convert(ActionEvent event) {
-
-
-        Runnable runnable = new Runnable() {
-            @Override
-            public void run() {
-                Document document = new Document(PageSize.A3, 0, 0, 0, 0);
-
-                document.addAuthor("Some Author");
+        Runnable runnable = () -> {
+            File[] arrayOfDirectories = mainDirectory.listFiles();
+            arrayOfDirectories = pathSort(arrayOfDirectories);
+            Image firstPage = null;
+            try {
+                firstPage = Image.getInstance(findFirstImage(arrayOfDirectories[0].listFiles()).getAbsolutePath());
+//                System.out.println(findFirstImage(arrayOfDirectories[0].listFiles()).getAbsolutePath());
+            } catch (BadElementException | IOException e) {
+             logLabel.setText("Ошибка первой страницы");
+            }
+            Document document = new Document(new Rectangle(firstPage.getWidth(), firstPage.getHeight()), 0, 0, 0, 0);
+            document.addAuthor("Some Author");
+            if (!nameOfDocumentField.getCharacters().toString().equals(""))
+                document.addTitle(nameOfDocumentField.getCharacters().toString());
+            try {
                 if (!nameOfDocumentField.getCharacters().toString().equals(""))
-                    document.addTitle(nameOfDocumentField.getCharacters().toString());
-                try {
-                    if (!nameOfDocumentField.getCharacters().toString().equals(""))
-                        PdfWriter.getInstance(document, new FileOutputStream(mainDirectory.getParent() + "/" + nameOfDocumentField.getCharacters().toString() + ".pdf"));
-                    else{
-                        PdfWriter.getInstance(document, new FileOutputStream(mainDirectory.getParent() + "/" + mainDirectory.getName() + ".pdf"));
-                    }
-                } catch (DocumentException | FileNotFoundException e) {
-                    logLabel.setText("Не найден документ (хотя должен находиться)");
+                    PdfWriter.getInstance(document, new FileOutputStream(mainDirectory.getParent() + "/" + nameOfDocumentField.getCharacters().toString() + ".pdf"));
+                else{
+                    PdfWriter.getInstance(document, new FileOutputStream(mainDirectory.getParent() + "/" + mainDirectory.getName() + ".pdf"));
                 }
-                document.open();
-                File[] arrayOfDirectories = mainDirectory.listFiles();
-                arrayOfDirectories = pathSort(arrayOfDirectories);
-                int i = 0;
-                for (File path : arrayOfDirectories) {
-                    i++;
-                    convertProgressBar.setProgress(((double) i / (double) arrayOfDirectories.length));
+            } catch (DocumentException | FileNotFoundException e) {
+                logLabel.setText("Не найден документ (хотя должен находиться)");
+            }
+            document.open();
+            int i = 0;
+            for (File path : arrayOfDirectories) {
+                i++;
+                convertProgressBar.setProgress(((double) i / (double) arrayOfDirectories.length));
 //            System.out.println(path.getName());
-                    if (path.isDirectory()) {
-                        File[] imageFiles = pathSort(path.listFiles());
-                        for (File imageFile : imageFiles) {
+                if (path.isDirectory()) {
+                    File[] imageFiles = pathSort(path.listFiles());
+                    for (File imageFile : imageFiles) {
 //                    System.out.println(imageFile.getName());
-                            try {
-                                if (imageFile.getName().contains(".jpeg")) {
-                                    Image image = Image.getInstance(imageFile.getAbsolutePath());
-                                    document.add(image);
-                                    document.setPageSize(new Rectangle(image.getWidth(), image.getHeight()));
-                                }
-                            } catch (DocumentException | IOException e) {
-                                logLabel.setText("Произошло какое-то дерьмо");
+                        try {
+                            if (imageFile.getName().contains(".jpeg")) {
+                                Image image = Image.getInstance(imageFile.getAbsolutePath());
+                                document.add(image);
+                                document.setPageSize(new Rectangle(image.getWidth(), image.getHeight()));
                             }
+                        } catch (DocumentException | IOException e) {
+                            logLabel.setText("Произошло какое-то дерьмо");
                         }
                     }
                 }
-                document.close();
             }
+
+            document.close();
         };
         Thread thread = new Thread(runnable);
         thread.start();
