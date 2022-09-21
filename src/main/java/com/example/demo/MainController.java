@@ -6,12 +6,10 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.URL;
 import java.util.*;
-import java.util.List;
 
 import com.itextpdf.text.*;
 import com.itextpdf.text.pdf.PdfWriter;
 
-import javafx.application.Platform;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
@@ -48,7 +46,6 @@ public class MainController {
 
     @FXML
     void initialize() {
-
     }
 
     @FXML
@@ -73,19 +70,18 @@ public class MainController {
         return list;
     }
 
-    private File[] pathSort(File[] someArray) {
+    private File[] fileSort(File[] someArray) {
         Comparator<File> pathComparator = ((o1, o2) -> {
-            String[] firstObjectArray = o1.getName().split("[^\\d\\.]+");
-            String[] secondObjectArray = o2.getName().split("[^\\d\\.]+");
-            ArrayList<Double> firstObjectList = stringArrayToDoubleList(firstObjectArray);
-            ArrayList<Double> secondObjectList = stringArrayToDoubleList(secondObjectArray);
-            for (int i = 0; i < firstObjectList.size(); i++) {
-                Integer firstElement = Math.toIntExact((long) (firstObjectList.get(i) * 1000));
-                Integer secondElement = Math.toIntExact((long) (secondObjectList.get(i) * 1000));
+            String[] firstObjectArray = o1.getName().split("[^\\d\\.]+"); //составить массивы номеров томов, глав и тд для сортировки
+            String[] secondObjectArray = o2.getName().split("[^\\d\\.]+"); //
+            ArrayList<Double> firstObjectList = stringArrayToDoubleList(firstObjectArray); //конвертация массивов строк в лист нецелых чисел
+            ArrayList<Double> secondObjectList = stringArrayToDoubleList(secondObjectArray); //
+            for (int i = 0; i < firstObjectList.size(); i++) { //проход по томам, главам и тд
+                Integer firstElement = Math.toIntExact((long) (firstObjectList.get(i) * 1000));  //перевод в целые числа
+                Integer secondElement = Math.toIntExact((long) (secondObjectList.get(i) * 1000)); //
                 if (firstElement - secondElement != 0) {
-                    return firstElement - secondElement;
+                    return firstElement - secondElement; //сравнение
                 }
-
             }
             return 0;
         });
@@ -93,80 +89,76 @@ public class MainController {
         return someArray;
     }
 
-//    private File[] imageSort(File[] imageFiles) {
-//        Arrays.sort(imageFiles, (f1, f2) -> {
-//            try {
-//                int i1 = Integer.parseInt(String.valueOf(Arrays.stream(f1.getName().
-//                        split("\\.")).toList().get(0)));
-//                int i2 = Integer.parseInt(String.valueOf(Arrays.stream(f2.getName().split("\\.")).toList().get(0)));
-//                return i1 - i2;
-//            } catch (NumberFormatException e) {
-//                throw new AssertionError(e);
-//            }
-//        });
-//        return imageFiles;
-//    }
-
-    private File findFirstImage(File[] imageArray){
-        for(File image : imageArray){
-            if(image.getName().equals("0.jpeg")){
+    private File findFirstImage(File[] imageArray) {
+        for (File image : imageArray) {
+            if (image.getName().equals("0.jpeg")) {
                 return image;
             }
         }
         return null;
     }
 
+    private Image fixFirstPage(File[] arrayOfDirectories) {
+        try {
+            Image firstPage = Image.getInstance(findFirstImage(arrayOfDirectories[0].listFiles()).getAbsolutePath());
+            return firstPage;
+        } catch (BadElementException | IOException e) {
+            logLabel.setText("Ошибка первой страницы");
+        }
+        return null;
+    }
+
+    private void initializeDocument(Document document) {
+        document.addAuthor("Some Author");
+        if (!nameOfDocumentField.getCharacters().toString().equals(""))
+            document.addTitle(nameOfDocumentField.getCharacters().toString());
+        try {
+            if (!nameOfDocumentField.getCharacters().toString().equals(""))
+                PdfWriter.getInstance(document, new FileOutputStream(mainDirectory.getParent() + "/" + nameOfDocumentField.getCharacters().toString() + ".pdf"));
+            else {
+                PdfWriter.getInstance(document, new FileOutputStream(mainDirectory.getParent() + "/" + mainDirectory.getName() + ".pdf"));
+            }
+        } catch (DocumentException | FileNotFoundException e) {
+            logLabel.setText("Не найден документ (хотя должен находиться)");
+        }
+    }
+
+    private void addJpegsToDocument(File[] arrayOfDirectories, Document document) {
+        int i = 0;
+        for (File path : arrayOfDirectories) { //проходимся по папкам с главами
+            i++;
+            if (path.isDirectory()) {
+                File[] imageFiles = fileSort(path.listFiles());
+                for (File imageFile : imageFiles) { //проходимся по картинкам
+                    try {
+                        if (imageFile.getName().contains(".jpeg")) {
+                            Image image = Image.getInstance(imageFile.getAbsolutePath());
+                            document.add(image);
+                            document.setPageSize(new Rectangle(image.getWidth(), image.getHeight()));
+                        }
+                    } catch (DocumentException | IOException e) {
+                        logLabel.setText("Произошло какое-то дерьмо");
+                    }
+                }
+                convertProgressBar.setProgress(((double) i / (double) arrayOfDirectories.length)); //для прогрессбара
+            }
+        }
+    }
+
     @FXML
     void convert(ActionEvent event) {
         Runnable runnable = () -> {
             File[] arrayOfDirectories = mainDirectory.listFiles();
-            arrayOfDirectories = pathSort(arrayOfDirectories);
-            Image firstPage = null;
-            try {
-                firstPage = Image.getInstance(findFirstImage(arrayOfDirectories[0].listFiles()).getAbsolutePath());
-//                System.out.println(findFirstImage(arrayOfDirectories[0].listFiles()).getAbsolutePath());
-            } catch (BadElementException | IOException e) {
-             logLabel.setText("Ошибка первой страницы");
-            }
+            arrayOfDirectories = fileSort(arrayOfDirectories);
+            Image firstPage = fixFirstPage(arrayOfDirectories);
             Document document = new Document(new Rectangle(firstPage.getWidth(), firstPage.getHeight()), 0, 0, 0, 0);
-            document.addAuthor("Some Author");
-            if (!nameOfDocumentField.getCharacters().toString().equals(""))
-                document.addTitle(nameOfDocumentField.getCharacters().toString());
-            try {
-                if (!nameOfDocumentField.getCharacters().toString().equals(""))
-                    PdfWriter.getInstance(document, new FileOutputStream(mainDirectory.getParent() + "/" + nameOfDocumentField.getCharacters().toString() + ".pdf"));
-                else{
-                    PdfWriter.getInstance(document, new FileOutputStream(mainDirectory.getParent() + "/" + mainDirectory.getName() + ".pdf"));
-                }
-            } catch (DocumentException | FileNotFoundException e) {
-                logLabel.setText("Не найден документ (хотя должен находиться)");
-            }
+            initializeDocument(document);
             document.open();
-            int i = 0;
-            for (File path : arrayOfDirectories) {
-                i++;
-                convertProgressBar.setProgress(((double) i / (double) arrayOfDirectories.length));
-//            System.out.println(path.getName());
-                if (path.isDirectory()) {
-                    File[] imageFiles = pathSort(path.listFiles());
-                    for (File imageFile : imageFiles) {
-//                    System.out.println(imageFile.getName());
-                        try {
-                            if (imageFile.getName().contains(".jpeg")) {
-                                Image image = Image.getInstance(imageFile.getAbsolutePath());
-                                document.add(image);
-                                document.setPageSize(new Rectangle(image.getWidth(), image.getHeight()));
-                            }
-                        } catch (DocumentException | IOException e) {
-                            logLabel.setText("Произошло какое-то дерьмо");
-                        }
-                    }
-                }
-            }
-
+            addJpegsToDocument(arrayOfDirectories, document);
             document.close();
         };
         Thread thread = new Thread(runnable);
         thread.start();
     }
+
 }
