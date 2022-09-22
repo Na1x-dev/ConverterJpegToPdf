@@ -10,6 +10,7 @@ import java.util.*;
 import com.itextpdf.text.*;
 import com.itextpdf.text.pdf.PdfWriter;
 
+import javafx.application.Platform;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
@@ -76,12 +77,22 @@ public class MainController {
             String[] secondObjectArray = o2.getName().split("[^\\d\\.]+"); //
             ArrayList<Double> firstObjectList = stringArrayToDoubleList(firstObjectArray); //конвертация массивов строк в лист нецелых чисел
             ArrayList<Double> secondObjectList = stringArrayToDoubleList(secondObjectArray); //
-            for (int i = 0; i < firstObjectList.size(); i++) { //проход по томам, главам и тд
-                Integer firstElement = Math.toIntExact((long) (firstObjectList.get(i) * 1000));  //перевод в целые числа
-                Integer secondElement = Math.toIntExact((long) (secondObjectList.get(i) * 1000)); //
-                if (firstElement - secondElement != 0) {
-                    return firstElement - secondElement; //сравнение
+            try {
+                for (int i = 0; i < firstObjectList.size(); i++) { //проход по томам, главам и тд
+                    Integer firstElement = Math.toIntExact((long) (firstObjectList.get(i) * 1000));  //перевод в целые числа
+                    Integer secondElement = Math.toIntExact((long) (secondObjectList.get(i) * 1000)); //
+                    if (firstElement - secondElement != 0) {
+                        return firstElement - secondElement; //сравнение
+                    }
                 }
+            } catch (IndexOutOfBoundsException e) {
+                Platform.runLater(new Runnable() {
+                    @Override
+                    public void run() {
+                        logLabel.setText("В папке нет нужной структуры директорий и файлов");
+                        convertProgressBar.setProgress(0);
+                    }
+                });
             }
             return 0;
         });
@@ -156,6 +167,13 @@ public class MainController {
             document.open();
             addJpegsToDocument(arrayOfDirectories, document);
             document.close();
+            Platform.runLater(new Runnable() {
+                @Override
+                public void run() {
+                    logLabel.setText("Успешно конвертировано!");
+                    convertProgressBar.setProgress(0);
+                }
+            });
         };
         Thread thread = new Thread(runnable);
         thread.start();
