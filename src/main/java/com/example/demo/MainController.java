@@ -4,7 +4,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.net.URL;
+
 import java.util.*;
 
 import com.itextpdf.text.*;
@@ -22,17 +22,7 @@ public class MainController {
     File mainDirectory;
 
     @FXML
-    private ResourceBundle resources;
-
-    @FXML
-    private URL location;
-
-    @FXML
     private ProgressBar convertProgressBar;
-
-    @FXML
-    private Button directoryChoseButton;
-
     @FXML
     private Label logLabel;
 
@@ -71,6 +61,13 @@ public class MainController {
         return list;
     }
 
+    public void setTextLogLabel(String text){
+        Platform.runLater(() -> {
+            logLabel.setText(text);
+            convertProgressBar.setProgress(0);
+        });
+    }
+
     private File[] fileSort(File[] someArray) {
         Comparator<File> pathComparator = ((o1, o2) -> {
             String[] firstObjectArray = o1.getName().split("[^\\d\\.]+"); //составить массивы номеров томов, глав и тд для сортировки
@@ -86,13 +83,7 @@ public class MainController {
                     }
                 }
             } catch (IndexOutOfBoundsException e) {
-                Platform.runLater(new Runnable() {
-                    @Override
-                    public void run() {
-                        logLabel.setText("В папке нет нужной структуры директорий и файлов");
-                        convertProgressBar.setProgress(0);
-                    }
-                });
+                setTextLogLabel("В папке нет нужной структуры директорий и файлов");
             }
             return 0;
         });
@@ -111,8 +102,7 @@ public class MainController {
 
     private Image fixFirstPage(File[] arrayOfDirectories) {
         try {
-            Image firstPage = Image.getInstance(findFirstImage(arrayOfDirectories[0].listFiles()).getAbsolutePath());
-            return firstPage;
+            return Image.getInstance(findFirstImage(arrayOfDirectories[0].listFiles()).getAbsolutePath());
         } catch (BadElementException | IOException e) {
             logLabel.setText("Ошибка первой страницы");
         }
@@ -130,7 +120,19 @@ public class MainController {
                 PdfWriter.getInstance(document, new FileOutputStream(mainDirectory.getParent() + "/" + mainDirectory.getName() + ".pdf"));
             }
         } catch (DocumentException | FileNotFoundException e) {
-            logLabel.setText("Не найден документ (хотя должен находиться)");
+            setTextLogLabel("Не найден документ (хотя должен находиться)");
+        }
+    }
+
+    private void stepConvert(File imageFile, Document document){
+        try {
+            if (imageFile.getName().contains(".jpeg")) {
+                Image image = Image.getInstance(imageFile.getAbsolutePath());
+                document.add(image);
+                document.setPageSize(new Rectangle(image.getWidth(), image.getHeight()));
+            }
+        } catch (DocumentException | IOException e) {
+            setTextLogLabel("Ошибка при конвертировании");
         }
     }
 
@@ -141,17 +143,9 @@ public class MainController {
             if (path.isDirectory()) {
                 File[] imageFiles = fileSort(path.listFiles());
                 for (File imageFile : imageFiles) { //проходимся по картинкам
-                    try {
-                        if (imageFile.getName().contains(".jpeg")) {
-                            Image image = Image.getInstance(imageFile.getAbsolutePath());
-                            document.add(image);
-                            document.setPageSize(new Rectangle(image.getWidth(), image.getHeight()));
-                        }
-                    } catch (DocumentException | IOException e) {
-                        logLabel.setText("Произошло какое-то дерьмо");
-                    }
+                    stepConvert(imageFile, document); //добавляем картинку в документ, устанавливаем размеры страницы
                 }
-                convertProgressBar.setProgress(((double) i / (double) arrayOfDirectories.length)); //для прогрессбара
+                convertProgressBar.setProgress(((double) i / (double) arrayOfDirectories.length)); //для строки прогресса
             }
         }
     }
@@ -160,20 +154,14 @@ public class MainController {
     void convert(ActionEvent event) {
         Runnable runnable = () -> {
             File[] arrayOfDirectories = mainDirectory.listFiles();
-            arrayOfDirectories = fileSort(arrayOfDirectories);
+            fileSort(arrayOfDirectories);
             Image firstPage = fixFirstPage(arrayOfDirectories);
             Document document = new Document(new Rectangle(firstPage.getWidth(), firstPage.getHeight()), 0, 0, 0, 0);
             initializeDocument(document);
             document.open();
             addJpegsToDocument(arrayOfDirectories, document);
             document.close();
-            Platform.runLater(new Runnable() {
-                @Override
-                public void run() {
-                    logLabel.setText("Успешно конвертировано!");
-                    convertProgressBar.setProgress(0);
-                }
-            });
+            setTextLogLabel("Успешно конвертировано!");
         };
         Thread thread = new Thread(runnable);
         thread.start();
