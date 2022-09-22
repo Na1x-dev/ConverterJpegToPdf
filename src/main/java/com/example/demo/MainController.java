@@ -61,7 +61,7 @@ public class MainController {
         return list;
     }
 
-    public void setTextLogLabel(String text){
+    public void setTextLogLabel(String text) {
         Platform.runLater(() -> {
             logLabel.setText(text);
             convertProgressBar.setProgress(0);
@@ -92,19 +92,15 @@ public class MainController {
     }
 
     private File findFirstImage(File[] imageArray) {
-        for (File image : imageArray) {
-            if (image.getName().equals("0.jpeg")) {
-                return image;
-            }
-        }
-        return null;
+        fileSort(imageArray);
+        return imageArray[0];
     }
 
     private Image fixFirstPage(File[] arrayOfDirectories) {
         try {
             return Image.getInstance(findFirstImage(arrayOfDirectories[0].listFiles()).getAbsolutePath());
         } catch (BadElementException | IOException e) {
-            logLabel.setText("Ошибка первой страницы");
+            setTextLogLabel("Ошибка первой страницы");
         }
         return null;
     }
@@ -124,9 +120,10 @@ public class MainController {
         }
     }
 
-    private void stepConvert(File imageFile, Document document){
+    private void stepConvert(File imageFile, Document document) {
         try {
-            if (imageFile.getName().contains(".jpeg")) {
+            if (imageFile.getName().contains(".jpeg") || imageFile.getName().contains(".jpg") || imageFile.getName().contains(".png")) {
+                System.out.println(imageFile.getName());
                 Image image = Image.getInstance(imageFile.getAbsolutePath());
                 document.add(image);
                 document.setPageSize(new Rectangle(image.getWidth(), image.getHeight()));
