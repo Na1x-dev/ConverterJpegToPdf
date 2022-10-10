@@ -1,21 +1,30 @@
 package com.example.demo;
 
+
+import com.itextpdf.text.Image;
+import com.itextpdf.text.Rectangle;
+import com.itextpdf.text.*;
+import com.itextpdf.text.pdf.PdfWriter;
+import javafx.application.Platform;
+import javafx.event.ActionEvent;
+import javafx.fxml.FXML;
+import javafx.scene.control.Button;
+import javafx.scene.control.Label;
+import javafx.scene.control.ProgressBar;
+import javafx.scene.control.TextField;
+import javafx.stage.DirectoryChooser;
+import javafx.stage.Stage;
+
+import javax.imageio.ImageIO;
+import java.awt.*;
+import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
-
-import java.util.*;
-
-import com.itextpdf.text.*;
-import com.itextpdf.text.pdf.PdfWriter;
-
-import javafx.application.Platform;
-import javafx.event.ActionEvent;
-import javafx.fxml.FXML;
-import javafx.scene.control.*;
-import javafx.stage.DirectoryChooser;
-import javafx.stage.Stage;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
 
 public class MainController {
 
@@ -34,6 +43,59 @@ public class MainController {
 
     @FXML
     private Button startConvertButton;
+
+    private void imageFilter(File imageFile) throws IOException {
+        BufferedImage source = ImageIO.read(imageFile);
+        BufferedImage result = new BufferedImage(source.getWidth(), source.getHeight(), source.getType());
+
+        // Делаем двойной цикл, чтобы обработать каждый пиксель
+        for (int x = 0; x < source.getWidth(); x++) {
+            for (int y = 0; y < source.getHeight(); y++) {
+                double Amount = 0.999;
+                // Получаем цвет текущего пикселя
+                Color color = new Color(source.getRGB(x, y));
+
+                // Получаем каналы этого цвета
+                int blue = color.getBlue();
+                int red = color.getRed();
+                int green = color.getGreen();
+
+                int redCoef = (int) ((Math.abs(127 - red) * Amount) / 255);
+                int greenCoef = (int) ((Math.abs(127 - green) * Amount) / 255);
+                int blueCoef = (int) ((Math.abs(127 - blue) * Amount) / 255);
+                int newRed;
+                int newGreen;
+                int newBlue;
+                if (red > 127) {
+                    newRed = red + redCoef;
+                } else {
+                    newRed = red - redCoef;
+                }
+
+                if (green > 127) {
+                    newGreen = green + greenCoef;
+                } else {
+                    newGreen = green - greenCoef;
+                }
+                if (blue > 127) {
+                    newBlue = blue + blueCoef;
+                } else {
+                    newBlue = blue - blueCoef;
+                }
+
+                //  Cоздаем новый цвет
+                Color newColor = new Color(newRed, newGreen, newBlue);
+
+                // И устанавливаем этот цвет в текущий пиксель результирующего изображения
+                result.setRGB(x, y, newColor.getRGB());
+            }
+        }
+
+        // Созраняем результат в новый файл
+        File output = new File(imageFile.getParent() + "/gg_" + imageFile.getName());
+        ImageIO.write(result, "png", output);
+//        System.out.println(imageFile.getName());
+    }
 
     @FXML
     void initialize() {
@@ -122,9 +184,12 @@ public class MainController {
 
     private void stepConvert(File imageFile, Document document) {
         try {
+//            imageFilter(imageFile);
             if (imageFile.getName().contains(".jpeg") || imageFile.getName().contains(".jpg") || imageFile.getName().contains(".png")) {
-                System.out.println(imageFile.getName());
+//                System.out.println(imageFile.getName());
                 Image image = Image.getInstance(imageFile.getAbsolutePath());
+
+                image.setInterpolation(true);
                 document.add(image);
                 document.setPageSize(new Rectangle(image.getWidth(), image.getHeight()));
             }
